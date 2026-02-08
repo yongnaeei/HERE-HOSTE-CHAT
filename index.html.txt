@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Here Hostel Bangkok - แชทกับพนักงาน</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 0; background: #f8f9fa; color: #333; }
+        header { background: black; color: white; text-align: center; padding: 40px 20px; }
+        .logo { font-size: 5rem; font-weight: 900; margin: 0; letter-spacing: 4px; }
+        .logo-small { font-size: 2.5rem; margin: 10px 0; letter-spacing: 12px; opacity: 0.9; }
+        section { max-width: 800px; margin: 20px auto; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 4px 10px rgba(0,0,0,0.1); }
+        #messages { height: 400px; overflow-y: auto; border: 1px solid #ddd; padding: 15px; background: #f9f9f9; border-radius: 8px; margin-bottom: 10px; display: flex; flex-direction: column; }
+        .message { margin: 8px 0; padding: 10px; border-radius: 8px; max-width: 80%; }
+        .guest { background: #cce5ff; align-self: flex-end; text-align: right; }
+        .staff { background: #d4edda; align-self: flex-start; }
+        .timestamp { font-size: 0.8rem; color: #666; }
+        input, button { padding: 10px; margin: 5px 0; border-radius: 4px; border: 1px solid #ddd; }
+        #message-input { width: calc(100% - 100px); }
+        #send-button, #set-nick { background: #007bff; color: white; border: none; cursor: pointer; }
+        #set-nick { background: #28a745; }
+        footer { text-align: center; padding: 15px; background: #000; color: #fff; font-size: 0.9rem; }
+    </style>
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.2/firebase-database.js"></script>
+</head>
+<body>
+
+    <header>
+        <div class="logo">HERE</div>
+        <div class="logo-small">B A N G K O K</div>
+        <div class="logo">HOSTEL</div>
+    </header>
+
+    <section>
+        <h2>แชทกับพนักงาน Here Hostel</h2>
+        <p>ถามเรื่องเช็คอิน, แนะนำร้าน, หรือแจ้งปัญหาได้เลย เราจะตอบให้เร็วที่สุดครับ</p>
+
+        <div>
+            <label>ชื่อ/เบอร์ห้อง:</label><br>
+            <input type="text" id="nickname" placeholder="เช่น คุณน้ำ หรือห้อง 205">
+            <button id="set-nick">ตั้งชื่อ</button>
+        </div>
+
+        <div id="messages"></div>
+
+        <input type="text" id="message-input" placeholder="พิมพ์ข้อความ...">
+        <button id="send-button">ส่ง</button>
+    </section>
+
+    <footer>
+        ติดต่อเรา: herehostel@gmail.com | FB: Here Hostel Bangkok
+    </footer>
+
+    <script>
+        // Replace with your Firebase config
+        const firebaseConfig = {
+            apiKey: "YOUR_API_KEY",
+            authDomain: "your-project.firebaseapp.com",
+            databaseURL: "https://your-project-default-rtdb.firebaseio.com",
+            projectId: "your-project",
+            storageBucket: "your-project.appspot.com",
+            messagingSenderId: "YOUR_SENDER_ID",
+            appId: "YOUR_APP_ID"
+        };
+
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+        const messagesRef = db.ref('hostel-chat');
+
+        let nickname = localStorage.getItem('nickname') || 'Guest';
+        const messagesBox = document.getElementById('messages');
+
+        // Set nickname
+        document.getElementById('set-nick').onclick = () => {
+            const name = document.getElementById('nickname').value.trim();
+            if (name) {
+                nickname = name;
+                localStorage.setItem('nickname', name);
+                alert('ตั้งชื่อเป็น: ' + name);
+            }
+        };
+
+        // Add message to UI
+        function addMessage(text, sender, timestamp) {
+            const el = document.createElement('div');
+            el.classList.add('message', sender === 'staff' ? 'staff' : 'guest');
+            el.innerHTML = `
+                <div class="timestamp">${new Date(timestamp).toLocaleTimeString('th-TH')}</div>
+                <strong>${sender === 'staff' ? 'พนักงาน' : nickname}:</strong> ${text}
+            `;
+            messagesBox.appendChild(el);
+            messagesBox.scrollTop = messagesBox.scrollHeight;
+        }
+
+        // Listen for new messages
+        messagesRef.on('child_added', snap => {
+            const data = snap.val();
+            addMessage(data.text, data.sender, data.timestamp);
+
+            // Browser notification if from guest and we're staff (assuming staff page)
+            if (data.sender !== 'staff' && 'Notification' in window && Notification.permission === 'granted') {
+                new Notification('ข้อความใหม่จากลูกค้า', { body: `${nickname}: ${data.text}` });
+            }
+        });
+
+        // Send message
+        document.getElementById('send-button').onclick = () => {
+            const text = document.getElementById('message-input').value.trim();
+            if (text) {
+                messagesRef.push({
+                    text: text,
+                    sender: 'guest', // Change to 'staff' if on staff side
+                    timestamp: Date.now()
+                });
+                document.getElementById('message-input').value = '';
+            }
+        };
+
+        // Request notification permission on load
+        if ('Notification' in window) {
+            Notification.requestPermission().then(permission => {
+                if (permission === 'granted') {
+                    console.log('Notification permission granted.');
+                }
+            });
+        }
+    </script>
+</body>
+</html>
